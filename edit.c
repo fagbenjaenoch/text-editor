@@ -1,3 +1,7 @@
+#define _DEFAULT_SOURCE
+#define _BSD_SOURCE
+#define _GNU_SOURCE
+
 #include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
@@ -8,7 +12,6 @@
 #include <unistd.h>
 
 /*** defines ***/
-
 #define EDIT_VERSION "0.0.1"
 
 #define CTRL_KEY(k) ((k) & 0x1f)
@@ -413,11 +416,14 @@ void initEditor()
 		die("getWindowSize");
 }
 
-int main()
+int main(int argc, char *argv[])
 {
 	enableRawMode();
 	initEditor();
-	editorOpen();
+	if (argc > 2)
+	{
+		editorOpen(argv[1]);
+	}
 
 	while (1)
 	{
