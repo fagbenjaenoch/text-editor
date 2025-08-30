@@ -34,7 +34,9 @@ enum editorKey
 typedef struct erow
 {
 	int size;
+	int rsize;
 	char *chars;
+	char *render;
 } erow;
 
 struct editorConfig
@@ -237,6 +239,36 @@ int getWindowSize(int *rows, int *cols)
 
 /*** row operations ***/
 
+void editorUpdateRow(erow *row)
+{
+	int tabs = 0;
+	int j;
+
+	for (j = 0; j < row->size; j++)
+		if (row->chars[j] == '\t')
+			tabs++;
+
+	free(row->render);
+	row->render = malloc(row->size + tabs * 7 + 1);
+
+	int idx = 0;
+	for (j = 0; j < row->size; j++)
+	{
+		if (row->chars[j] == '\t')
+		{
+			row->render[idx++] = ' ';
+			while (idx % 8 != 0)
+				row->chars[j];
+		}
+		else
+		{
+			row->render[idx++] = row->chars[j];
+		}
+	}
+	row->render[idx] = '\0';
+	row->rsize = idx;
+}
+
 /**
  * Adds a new row of text to the editor's buffer
  * @param s: The string to add
@@ -253,6 +285,11 @@ void editorAppendRow(char *s, size_t len)
 	E.row[at].chars = malloc(len + 1);
 	memcpy(E.row[at].chars, s, len);
 	E.row[at].chars[len] = '\0';
+
+	E.row[at].rsize = 0;
+	E.row[at].render = NULL;
+	editorUpdateRow(&E.row[at]);
+
 	E.numrows++;
 }
 
@@ -391,13 +428,13 @@ void editorDrawRows(struct abuf *ab)
 		}
 		else
 		{
-			int len = E.row[filerow].size - E.coloff;
+			int len = E.row[filerow].rsize - E.coloff;
 			if (len < 0)
 				len = 0;
 			// You'd find a lot of the checks below, it is used to truncate the row if it is greater than the terminal column size
 			if (len > E.screencols)
 				len = E.screencols;
-			abAppend(ab, &E.row[filerow].chars[E.coloff], len);
+			abAppend(ab, &E.row[filerow].render[E.coloff], len);
 		}
 		abAppend(ab, "\x1b[K", 3);
 		if (y < E.screenrows - 1)
@@ -447,6 +484,8 @@ void editorRefreshScreen()
  */
 void editorMoveCursor(int key)
 {
+	erow *row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
+
 	switch (key)
 	{
 	case ARROW_LEFT:
@@ -454,9 +493,22 @@ void editorMoveCursor(int key)
 		{
 			E.cx--;
 		}
+		else if (E.cy > 0)
+		{
+			E.cy--;
+			E.cx = E.row[E.cy].size;
+		}
 		break;
 	case ARROW_RIGHT:
-		E.cx++;
+		if (row && E.cx < row->size)
+		{
+			E.cx++;
+		}
+		else if (row && E.cx == row->size)
+		{
+			E.cy++;
+			E.cx = 0;
+		}
 		break;
 	case ARROW_UP:
 		if (E.cy != 0)
@@ -473,6 +525,13 @@ void editorMoveCursor(int key)
 
 	default:
 		break;
+	}
+
+	row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
+	int rowlen = row ? row->size : 0;
+	if (E.cx > rowlen)
+	{
+		E.cx = rowlen;
 	}
 }
 
