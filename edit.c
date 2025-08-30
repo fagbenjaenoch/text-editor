@@ -52,6 +52,11 @@ struct editorConfig E;
 
 /*** terminal ***/
 
+/**
+ * Error handling function that cleans up the terminal and exits
+ * Called when fatal errors occur (file operations, terminal operations)
+ * Clears screen, resets cursor position, prints error message and exits
+ */
 void die(const char *s)
 {
 	write(STDOUT_FILENO, "\x1b[2J", 4);
@@ -61,12 +66,25 @@ void die(const char *s)
 	exit(1);
 }
 
+/**
+ * Restores the terminal to its original settings when the editor exits
+ * Called automatically at exit via atexit()
+ * Reverts all changes made by enableRawMode()
+ */
 void disableRawMode()
 {
 	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &E.orig_termios) == -1)
 		die("tcseattr");
 }
 
+/**
+ * Configures terminal for raw mode operation
+ * - Disables terminal echo
+ * - Disables canonical mode (line buffering)
+ * - Disables Ctrl-C and Ctrl-Z signals
+ * - Disables Ctrl-S and Ctrl-Q flow control
+ * - Configures read timeout settings
+ */
 void enableRawMode()
 {
 	if (tcgetattr(STDIN_FILENO, &E.orig_termios) == -1)
@@ -86,6 +104,12 @@ void enableRawMode()
 		die("tcsetattr");
 }
 
+/**
+ * Reads a keypress from the terminal
+ * Handles escape sequences for special keys (arrows, home, end, etc)
+ * Returns either a single character or a special key code from editorKey enum
+ * Blocks until a key is read
+ */
 int editorReadKey()
 {
 	int nread;
@@ -212,6 +236,13 @@ int getWindowSize(int *rows, int *cols)
 
 /*** row operations ***/
 
+/**
+ * Adds a new row of text to the editor's buffer
+ * @param s: The string to add
+ * @param len: Length of the string
+ * Dynamically allocates memory for the new row
+ * Updates the editor's row count
+ */
 void editorAppendRow(char *s, size_t len)
 {
 	E.row = realloc(E.row, sizeof(erow) * (E.numrows + 1));
@@ -226,6 +257,13 @@ void editorAppendRow(char *s, size_t len)
 
 /*** file i/o ***/
 
+/**
+ * Opens and reads a file into the editor buffer
+ * @param filename: Path to the file to open
+ * Reads the file line by line
+ * Strips newline characters
+ * Adds each line to the editor's row buffer
+ */
 void editorOpen(char *filename)
 {
 	FILE *fp = fopen(filename, "r");
@@ -258,6 +296,14 @@ struct abuf
 
 #define ABUF_INIT {NULL, 0}
 
+/**
+ * Append buffer: Efficient string building for terminal output
+ * @param ab: Append buffer structure
+ * @param s: String to append
+ * @param len: Length of string
+ * Dynamically grows the buffer as needed
+ * Used to build the complete screen output before writing to terminal
+ */
 void abAppend(struct abuf *ab, const char *s, int len)
 {
 	char *new = realloc(ab->b, ab->len + len);
@@ -276,6 +322,12 @@ void abFree(struct abuf *ab)
 
 /*** output ***/
 
+/**
+ * Handles vertical scrolling of the editor window
+ * Updates E.rowoff (row offset) based on cursor position
+ * Ensures cursor stays within visible portion of the screen
+ * Called before each screen refresh
+ */
 void editorScroll()
 {
 	if (E.cy < E.rowoff)
@@ -289,6 +341,15 @@ void editorScroll()
 	}
 }
 
+/**
+ * Renders each row of the editor
+ * @param ab: Append buffer for building output
+ * Handles:
+ * - Drawing file contents
+ * - Welcome message when buffer is empty
+ * - Tilde markers for lines past end of file
+ * - Truncating lines that exceed screen width
+ */
 void editorDrawRows(struct abuf *ab)
 {
 	int y;
@@ -334,6 +395,16 @@ void editorDrawRows(struct abuf *ab)
 		}
 	}
 }
+/**
+ * Main screen refresh function
+ * Handles complete redraw of the editor screen
+ * - Updates scroll position
+ * - Hides cursor during redraw
+ * - Clears screen and redraws all rows
+ * - Positions cursor
+ * - Shows cursor again
+ * Uses append buffer for efficient terminal I/O
+ */
 void editorRefreshScreen()
 {
 	editorScroll();
@@ -356,6 +427,12 @@ void editorRefreshScreen()
 
 /*** input ***/
 
+/**
+ * Handles cursor movement based on arrow key input
+ * @param key: The key pressed (ARROW_LEFT, ARROW_RIGHT, etc)
+ * Updates cursor position (E.cx, E.cy)
+ * Implements bounds checking to prevent cursor from going off-screen
+ */
 void editorMoveCursor(int key)
 {
 	switch (key)
@@ -390,6 +467,16 @@ void editorMoveCursor(int key)
 	}
 }
 
+/**
+ * Main input handling function
+ * Reads and processes each keypress
+ * Handles:
+ * - Editor commands (Ctrl-Q to quit)
+ * - Cursor movement (arrows)
+ * - Page up/down
+ * - Home/End keys
+ * Main input loop of the editor
+ */
 void editorProcessKeypress()
 {
 	int c = editorReadKey();
@@ -431,6 +518,14 @@ void editorProcessKeypress()
 
 /*** init ***/
 
+/**
+ * Initializes the editor state
+ * - Resets cursor position
+ * - Initializes row offset
+ * - Gets terminal window size
+ * - Initializes empty text buffer
+ * Called once at program start
+ */
 void initEditor()
 {
 	E.cx = 0;
