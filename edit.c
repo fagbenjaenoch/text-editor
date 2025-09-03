@@ -266,8 +266,7 @@ void editorUpdateRow(erow *row)
 			tabs++;
 
 	free(row->render);
-	row->render = malloc(row->size + (EDIT_TAB_STOP - 1) + 1);
-
+	row->render = malloc(row->size + tabs * (EDIT_TAB_STOP - 1) + 1);
 	int idx = 0;
 	for (j = 0; j < row->size; j++)
 	{
@@ -275,7 +274,7 @@ void editorUpdateRow(erow *row)
 		{
 			row->render[idx++] = ' ';
 			while (idx % EDIT_TAB_STOP != 0)
-				row->chars[j];
+				row->render[idx++] = ' ';
 		}
 		else
 		{
@@ -590,6 +589,17 @@ void editorProcessKeypress()
 	case PAGE_DOWN:
 	case PAGE_UP:
 	{
+		if (c == PAGE_UP)
+		{
+			E.cy = E.rowoff;
+		}
+		else if (c == PAGE_DOWN)
+		{
+			E.cy = E.rowoff + E.screenrows - 1;
+			if (E.cy > E.numrows)
+				E.cy = E.numrows;
+		}
+
 		int times = E.screenrows;
 		while (times--)
 		{
