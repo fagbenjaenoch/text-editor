@@ -92,6 +92,15 @@ void disableRawMode()
 		die("tcseattr");
 }
 
+void editorSetStatusMessage(const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	vsnprintf(E.statusmsg, sizeof(E.statusmsg), fmt, ap);
+	va_end(ap);
+	E.statusmsg_time = time(NULL);
+}
+
 /**
  * Configures terminal for raw mode operation
  * - Disables terminal echo
@@ -415,6 +424,7 @@ void editorSave()
 			{
 				close(fd);
 				free(buf);
+				editorSetStatusMessage("%d bytes written to disk", len);
 				return;
 			}
 		}
@@ -422,6 +432,7 @@ void editorSave()
 	}
 
 	free(buf);
+	editorSetStatusMessage("Can't save! I/O error: %s", strerror(errno));
 }
 
 /*** append buffer ***/
@@ -616,15 +627,6 @@ void editorRefreshScreen()
 	abFree(&ab);
 }
 
-void editorSetStatusMessage(const char *fmt, ...)
-{
-	va_list ap;
-	va_start(ap, fmt);
-	vsnprintf(E.statusmsg, sizeof(E.statusmsg), fmt, ap);
-	va_end(ap);
-	E.statusmsg_time = time(NULL);
-}
-
 /*** input ***/
 
 /**
@@ -808,7 +810,7 @@ int main(int argc, char *argv[])
 		editorOpen(argv[1]);
 	}
 
-	editorSetStatusMessage("HELP: CTRL-Q = quit");
+	editorSetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit");
 
 	while (1)
 	{
