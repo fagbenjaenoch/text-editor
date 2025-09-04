@@ -1,9 +1,12 @@
+/*** includes ***/
+
 #define _DEFAULT_SOURCE
 #define _BSD_SOURCE
 #define _GNU_SOURCE
 
 #include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -14,6 +17,7 @@
 #include <unistd.h>
 
 /*** defines ***/
+
 #define EDIT_VERSION "0.0.1"
 #define EDIT_TAB_STOP 8
 
@@ -347,6 +351,28 @@ void editorInsertChar(int c)
  * Strips newline characters
  * Adds each line to the editor's row buffer
  */
+
+char *editorRowsToString(int *buflen)
+{
+	int totlen = 0;
+	int j;
+	for (j = 0; j < E.numrows; j++)
+		totlen += E.row[j].size + 1;
+	*buflen = totlen;
+
+	char *buf = malloc(totlen);
+	char *p = buf;
+	for (j = 0; j < E.numrows; j++)
+	{
+		memcpy(p, E.row[j].chars, E.row[j].size);
+		p += E.row[j].size;
+		*p = '\n';
+		p++;
+	}
+
+	return buf;
+}
+
 void editorOpen(char *filename)
 {
 	free(E.filename);
@@ -370,6 +396,21 @@ void editorOpen(char *filename)
 
 	free(line);
 	fclose(fp);
+}
+
+void editorSave()
+{
+	if (E.filename == NULL)
+		return;
+
+	int len;
+	char *buf = editorRowsToString(&len);
+
+	int fd = open(E.filename, O_RDWR | O_CREAT, 0644);
+	ftruncate(fd, len);
+	write(fd, buf, len);
+	close(fd);
+	free(buf);
 }
 
 /*** append buffer ***/
@@ -658,6 +699,10 @@ void editorProcessKeypress()
 		write(STDOUT_FILENO, "\x1b[2J", 4);
 		write(STDOUT_FILENO, "\x1b[H", 3);
 		exit(0);
+		break;
+
+	case CTRL_KEY('s'):
+		editorSave();
 		break;
 
 	case HOME_KEY:
