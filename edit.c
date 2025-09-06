@@ -347,6 +347,22 @@ void editorRowDelChar(erow *row, int at)
 	E.dirty++;
 }
 
+void editorFreeRow(erow *row)
+{
+	free(row->render);
+	free(row->chars);
+}
+
+void editorDelRow(int at)
+{
+	if (at < 0 || at >= E.numrows)
+		return;
+	editorFreeRow(&E.row[at]);
+	memmove(&E.row[at], &E.row[at + 1], sizeof(erow) * (E.numrows - at - 1));
+	E.numrows--;
+	E.dirty++;
+}
+
 /*** editor operations ***/
 
 void editorInsertChar(int c)
@@ -359,15 +375,34 @@ void editorInsertChar(int c)
 	E.cx++;
 }
 
+void editorRowAppendString(erow *row, char *s, size_t len)
+{
+	row->chars = realloc(row->chars, row->size + len + 1);
+	memcpy(&row->chars[row->size], s, len);
+	row->size += len;
+	row->chars[row->size] = '\0';
+	editorUpdateRow(row);
+	E.dirty++;
+}
+
 void editorDelChar()
 {
 	if (E.cy == E.numrows)
+		return;
+	if (E.cx == 0 && E.cy == 0)
 		return;
 	erow *row = &E.row[E.cy];
 	if (E.cx > 0)
 	{
 		editorRowDelChar(row, E.cx - 1);
 		E.cx--;
+	}
+	else
+	{
+		E.cx = E.row[E.cy - 1].size;
+		editorRowAppendString(&E.row[E.cy - 1], row->chars, row->size);
+		editorDelRow(E.cy);
+		E.cy--;
 	}
 }
 
