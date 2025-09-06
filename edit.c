@@ -37,6 +37,9 @@ enum editorKey
 	PAGE_DOWN
 };
 
+/*** prototypes ***/
+void editorSetStatusMessage(const char *fmt, ...);
+
 /*** data ***/
 
 typedef struct erow
@@ -90,15 +93,6 @@ void disableRawMode()
 {
 	if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &E.orig_termios) == -1)
 		die("tcseattr");
-}
-
-void editorSetStatusMessage(const char *fmt, ...)
-{
-	va_list ap;
-	va_start(ap, fmt);
-	vsnprintf(E.statusmsg, sizeof(E.statusmsg), fmt, ap);
-	va_end(ap);
-	E.statusmsg_time = time(NULL);
 }
 
 /**
@@ -433,6 +427,15 @@ void editorSave()
 
 	free(buf);
 	editorSetStatusMessage("Can't save! I/O error: %s", strerror(errno));
+}
+
+void editorSetStatusMessage(const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	vsnprintf(E.statusmsg, sizeof(E.statusmsg), fmt, ap);
+	va_end(ap);
+	E.statusmsg_time = time(NULL);
 }
 
 /*** append buffer ***/
